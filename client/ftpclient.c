@@ -1,60 +1,69 @@
 
-#include <stdlib.h>
-#include <stdio.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <string.h>
+#include <stdio.h> 
+#include <string.h>    
+#include <sys/socket.h>   
 #include <arpa/inet.h>
-
-#define MAXLINE 4096 /*max text line length*/
-#define SERV_PORT 3000 /*port*/
-
-int
-main(int argc, char **argv)
+ 
+int main(int argc , char *argv[])
 {
- int sockfd;
- struct sockaddr_in servaddr;
- char sendline[MAXLINE], recvline[MAXLINE];
+    int sock;
+    struct sockaddr_in server;
+    
+     
+    //Create socket
+    sock = socket(AF_INET , SOCK_STREAM , 0);
+    if (sock == -1)
+    {
+        printf("Could not create socket");
+        return 1;
+    }
+    puts("Socket created");
+     
+    server.sin_addr.s_addr = inet_addr("127.0.0.1");
+    server.sin_family = AF_INET;
+    server.sin_port = htons(3000);
+ 
+    //Connect to remote server
+    if (connect(sock , (struct sockaddr *)&server , sizeof(server)) < 0)
+    {
+        perror("connect failed. Error");
+        return 1;
+    }
+     
+    puts("Connected\n");
+     
+    //keep communicating with server
+    while(1)
+    {
+        char message[1000], server_reply[20000];;
+        printf("Command : ");
+        fgets (message, 1000, stdin);        
 
- //basic check of the arguments
- //additional checks can be inserted
- if (argc !=2) {
-  perror("Usage: TCPClient <IP address of the server");
-  exit(1);
- }
+        size_t ln = strlen(message) - 1;
+        if (message[ln] == '\n')
+            message[ln] = '\0';
 
- //Create a socket for the client
- //If sockfd<0 there was an error in the creation of the socket
- if ((sockfd = socket (AF_INET, SOCK_STREAM, 0)) <0) {
-  perror("Problem in creating the socket");
-  exit(2);
- }
+        printf("-->: %s\n", message);
+         
+        //Send some data
+        if( send(sock , message , strlen(message) , 0) < 0)
+        {
+            puts("Send failed");
+            return 1;
+        }
 
- //Creation of the socket
- memset(&servaddr, 0, sizeof(servaddr));
- servaddr.sin_family = AF_INET;
- servaddr.sin_addr.s_addr= inet_addr(argv[1]);
- servaddr.sin_port =  htons(SERV_PORT); //convert to big-endian order
-
- //Connection of the client to the socket
- if (connect(sockfd, (struct sockaddr *) &servaddr, sizeof(servaddr))<0) {
-  perror("Problem in connecting to the server");
-  exit(3);
- }
-
- while (fgets(sendline, MAXLINE, stdin) != NULL) {
-
-  send(sockfd, sendline, strlen(sendline), 0);
-
-  if (recv(sockfd, recvline, MAXLINE,0) == 0){
-   //error: server terminated prematurely
-   perror("The server terminated prematurely");
-   exit(4);
-  }
-  printf("%s", "String received from the server: ");
-  fputs(recvline, stdout);
- }
-
- exit(0);
+        memset(server_reply,0,sizeof(server_reply));
+         
+        //Receive a reply from the server
+        if( recv(sock , server_reply , 2000 , 0) < 0)
+        {
+            puts("recv failed");
+            break;
+        }
+         
+        printf("Response: %s\n", server_reply);
+    }
+     
+    close(sock);
+    return 0;
 }
