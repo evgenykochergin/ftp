@@ -8,12 +8,21 @@
 #include <dirent.h> 
 #include <sys/stat.h>
 #include <dirent.h> 
+#include <signal.h>
 
 #define MAXLINE 4096 /*max text line length*/
 #define SERV_PORT 3000 /*port*/
 #define LISTENQ 8 /*maximum number of client connections*/
 
 char dir_buf[5000];
+
+void sigchld_handler(int s)
+{
+
+    	while(waitpid(-1, NULL, WNOHANG) > 0);
+
+}
+
 
 int main (int argc, char **argv)
 {
@@ -22,6 +31,8 @@ int main (int argc, char **argv)
 	socklen_t clilen;
 	char buf[MAXLINE];
 	struct sockaddr_in cliaddr, servaddr;
+	struct sigaction sa; /* deal with signals from dying children! */
+	
 
 	//Create a socket for the soclet
 	//If sockfd<0 there was an error in the creation of the socket
@@ -40,7 +51,6 @@ int main (int argc, char **argv)
 
 	//listen to the socket by creating a connection queue, then wait for clients
 	listen (listenfd, LISTENQ);
-
 	printf("%s\n","Server running...waiting for connections.");
 
 	while(1) {
@@ -48,7 +58,8 @@ int main (int argc, char **argv)
 		//accept a connection
 		connfd = accept (listenfd, (struct sockaddr *) &cliaddr, &clilen);
 		printf("%s\n","Received request...");
-		if ( (childpid = fork ()) == 0 ) {//if it’s 0, it’s child process
+		if ( (childpid = fork ()) == 0 ) 
+		{//if it’s 0, it’s child process
 			printf ("%s\n","Child created for dealing with client requests");
 			//close listening socket
 			close (listenfd);
@@ -86,6 +97,17 @@ int main (int argc, char **argv)
 				printf("%s\n", "Read error");
 			exit(0);
 		}
+		else
+		{
+		 	sa.sa_handler = sigchld_handler; // reap all dead processes
+			sigemptyset(&sa.sa_mask);
+			sa.sa_flags = SA_RESTART;
+			if (sigaction(SIGCHLD, &sa, NULL) == -1) {
+				perror("sigaction");
+				exit(1);
+			}
+		}
+		
 		//close socket of the server
 		close(connfd);
 	}
