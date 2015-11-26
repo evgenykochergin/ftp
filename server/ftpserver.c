@@ -87,6 +87,19 @@ int main (int argc, char **argv)
 					}
 					write(connfd, response , strlen(response));
 				}
+				else if (strcmp("CWD", command) == 0)
+				{
+					char* space = strchr(command, ' ');
+					char curdir[500];
+					getcwd(curdir, sizeof(curdir));
+					if (chdir(space+1) == 0)
+						write(connfd, "Successful" , strlen("Successful"));
+					else
+					{	
+						chdir(curdir);
+						write(connfd, "Unsuccessful" , strlen("Unsuccessful"));
+					}
+				}
 				else
 				{
 					write(connfd, "Unknown command" , strlen("Unknown command"));	
